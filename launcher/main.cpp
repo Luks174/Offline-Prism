@@ -41,12 +41,15 @@
 #include "console/WindowsConsole.h"
 #endif
 
+// Inside main() in launcher/main.cpp right before app initialization:
+
 int main(int argc, char* argv[])
 {
 #if defined Q_OS_WIN32
     // used on Windows to attach the standard IO streams
     console::WindowsConsoleGuard _consoleGuard;
 #endif
+    qDebug() << "=== RUNNING CUSTOM OFFLINE BUILD ===";
 
     // initialize Qt
     Application app(argc, argv);

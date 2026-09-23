@@ -1,0 +1,38 @@
+name: Build Windows Exe
+
+on:
+  push:
+    branches: [ "main", "master" ] # Change to your branch name if different
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository recursively
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.6.3'
+        host: 'win64'
+        target: 'desktop'
+        arch: 'win64_msvc2019_64'
+        tools: 'tools_cmake'
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build with CMake
+      run: |
+        cmake --build build --config Release
+
+    - name: Upload Windows Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: PrismLauncher-Windows-Exe
+        path: build/bin/

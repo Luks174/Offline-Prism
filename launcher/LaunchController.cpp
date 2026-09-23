@@ -83,7 +83,7 @@ void LaunchController::decideAccount()
         return;
     }
 
-    // Select the account to use. If the instance has a specific account set, that will be used. Otherwise, the default account will be used
+    // Select the account to use.
     auto* accounts = APPLICATION->accounts();
     const auto instanceAccountId = m_instance->settings()->get("InstanceAccountId").toString();
     const auto instanceAccountIndex = accounts->findAccountByProfileId(instanceAccountId);
@@ -93,35 +93,12 @@ void LaunchController::decideAccount()
         m_accountToUse = accounts->at(instanceAccountIndex);
     }
 
-    if (!accounts->anyAccountIsValid()) {
-        // Tell the user they need to log in at least one account in order to play.
-        auto reply = CustomMessageBox::selectable(m_parentWidget, tr("No Accounts"),
-                                                  tr("In order to play Minecraft, you must have at least one Microsoft "
-                                                     "account which owns Minecraft logged in. "
-                                                     "Would you like to open the account manager to add an account now?"),
-                                                  QMessageBox::Information, QMessageBox::Yes | QMessageBox::No)
-                         ->exec();
-
-        if (reply == QMessageBox::Yes) {
-            // Open the account manager.
-            APPLICATION->ShowGlobalSettings(m_parentWidget, "accounts");
-        } else if (reply == QMessageBox::No) {
-            // Do not open "profile select" dialog.
-            return;
-        }
-    }
-
-    if (!m_accountToUse && accounts->anyAccountIsValid()) {
-        // If no default account is set, ask the user which one to use.
+    // Bypass "No Accounts" MSA prompt for offline play
+    if (!m_accountToUse && accounts->count() > 0) {
         ProfileSelectDialog selectDialog(tr("Which account would you like to use?"), ProfileSelectDialog::GlobalDefaultCheckbox,
                                          m_parentWidget);
-
         selectDialog.exec();
-
-        // Launch the instance with the selected account.
         m_accountToUse = selectDialog.selectedAccount();
-
-        // If the user said to use the account as default, do that.
         if (selectDialog.useAsGlobalDefault() && m_accountToUse) {
             accounts->setDefaultAccount(m_accountToUse);
         }
@@ -130,8 +107,9 @@ void LaunchController::decideAccount()
 
 LaunchDecision LaunchController::decideLaunchMode()
 {
-    if (!m_accountToUse || m_wantedLaunchMode == LaunchMode::Demo) {
-        m_actualLaunchMode = LaunchMode::Demo;
+    // Force offline launch if no account or an offline account is selected
+    if (!m_accountToUse || m_accountToUse->accountType() == AccountType::Offline) {
+        m_actualLaunchMode = LaunchMode::Offline;
         return LaunchDecision::Continue;
     }
 
@@ -152,26 +130,22 @@ LaunchDecision LaunchController::decideLaunchMode()
     }
 
     if (!accountToCheck) {
-        m_actualLaunchMode = LaunchMode::Demo;
+        m_actualLaunchMode = LaunchMode::Offline;
         return LaunchDecision::Continue;
     }
 
     auto state = accountToCheck->accountState();
     const bool needsRefresh =
-        m_wantedLaunchMode == LaunchMode::Normal && (state == AccountState::Offline || accountToCheck->shouldRefresh());
+    m_wantedLaunchMode == LaunchMode::Normal && (state == AccountState::Offline || accountToCheck->shouldRefresh());
     if (state == AccountState::Unchecked || state == AccountState::Errored || needsRefresh) {
         accountToCheck->refresh();
         state = AccountState::Working;
     }
 
     if (state == AccountState::Working) {
-        // refresh is in progress, we need to wait for it to finish to proceed.
         ProgressDialog progDialog(m_parentWidget);
         progDialog.setSkipButton(true, tr("Abort"));
 
-        // TODO: this relies on tasks' synchronous signal dispatching nature
-        // TODO: meaning currentTask can't complete and become null while this code is running
-        // TODO: this code will produce a race condition when tasks become fully async
         auto task = accountToCheck->currentTask();
         progDialog.execWithTask(task.get());
 
@@ -198,8 +172,8 @@ LaunchDecision LaunchController::decideLaunchMode()
             break;
         default:
             m_actualLaunchMode =
-                state == AccountState::Online && m_wantedLaunchMode == LaunchMode::Normal ? LaunchMode::Normal : LaunchMode::Offline;
-            return LaunchDecision::Continue;  // All good to go
+            state == AccountState::Online && m_wantedLaunchMode == LaunchMode::Normal ? LaunchMode::Normal : LaunchMode::Offline;
+            return LaunchDecision::Continue;
     }
 
     if (reauthenticateAccount(accountToCheck, reauthReason)) {
@@ -214,8 +188,8 @@ bool LaunchController::askPlayDemo() const
     QMessageBox box(m_parentWidget);
     box.setWindowTitle(tr("Play demo?"));
     QString text = m_accountToUse
-                       ? tr("This account does not own Minecraft.\nYou need to purchase the game first to play the full version.")
-                       : tr("No account was selected for launch.");
+    ? tr("This account does not own Minecraft.\nYou need to purchase the game first to play the full version.")
+    : tr("No account was selected for launch.");
     text += tr("\n\nDo you want to play the demo?");
     box.setText(text);
     box.setIcon(QMessageBox::Warning);
@@ -339,7 +313,7 @@ bool LaunchController::reauthenticateAccount(const MinecraftAccountPtr& account,
 {
     auto button = QMessageBox::warning(
         m_parentWidget, tr("Account refresh failed"), tr("%1. Do you want to reauthenticate this account?").arg(reason),
-        QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No, QMessageBox::StandardButton::Yes);
+                                       QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No, QMessageBox::StandardButton::Yes);
     if (button == QMessageBox::StandardButton::Yes) {
         auto* accounts = APPLICATION->accounts();
         const bool isDefault = accounts->defaultAccount() == account;
@@ -411,7 +385,7 @@ void LaunchController::launchInstance()
     // Prepend Version
     {
         auto versionString = QString("%1 version: %2 (%3)")
-                                 .arg(BuildConfig.LAUNCHER_DISPLAYNAME, BuildConfig.printableVersionString(), BuildConfig.BUILD_PLATFORM);
+        .arg(BuildConfig.LAUNCHER_DISPLAYNAME, BuildConfig.printableVersionString(), BuildConfig.BUILD_PLATFORM);
         m_launcher->prependStep(makeShared<TextPrint>(m_launcher, versionString + "\n", MessageLevel::Launcher));
     }
     m_launcher->start();
@@ -436,9 +410,9 @@ void LaunchController::readyForLaunch()
     connect(profilerInstance, &BaseProfiler::readyToLaunch, this, [this](const QString& message) {
         QMessageBox msg(m_parentWidget);
         msg.setText(tr("The game launch is delayed until you press the "
-                       "button. This is the right time to setup the profiler, as the "
-                       "profiler server is running now.\n\n%1")
-                        .arg(message));
+        "button. This is the right time to setup the profiler, as the "
+        "profiler server is running now.\n\n%1")
+        .arg(message));
         msg.setWindowTitle(tr("Waiting."));
         msg.setIcon(QMessageBox::Information);
         msg.setCheckBox(new QCheckBox(tr("Disable profiler on next launch"), &msg));
@@ -496,9 +470,9 @@ bool LaunchController::abort()
     }
     auto response = CustomMessageBox::selectable(m_parentWidget, tr("Kill Minecraft?"),
                                                  tr("This can cause the instance to get corrupted and should only be used if Minecraft "
-                                                    "is frozen for some reason"),
+                                                 "is frozen for some reason"),
                                                  QMessageBox::Question, QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes)
-                        ->exec();
+    ->exec();
     if (response == QMessageBox::Yes) {
         return m_launcher->abort();
     }
