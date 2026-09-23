@@ -26,9 +26,15 @@ jobs:
     - name: Setup MSVC Environment
       uses: ilammy/msvc-dev-cmd@v1
 
+    - name: Checkout Extra CMake Modules (ECM)
+      uses: actions/checkout@v4
+      with:
+        repository: KDE/extra-cmake-modules
+        path: ecm
+
     - name: Configure CMake
       run: |
-        cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+        cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DECM_DIR="ecm"
 
     - name: Build with CMake
       run: |
