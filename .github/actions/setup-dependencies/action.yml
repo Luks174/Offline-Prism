@@ -118,13 +118,13 @@ runs:
       uses: actions/setup-python@v7
       with:
         python-version: '3.14'
-
-        - name: Setup ccache
-            uses: hendrikmuhs/ccache-action@v1.2.14
-            with:
-            key: ${{ runner.os }}-${{ matrix.artifact-name }}-${{ github.sha }}
-            restore-keys: |
-              ${{ runner.os }}-${{ matrix.artifact-name }}-
+    - name: Setup ccache
+      if: ${{ (runner.os != 'Windows' || inputs.msystem == '') && inputs.build-type == 'Debug' }}
+      uses: hendrikmuhs/ccache-action@v1.2.23
+      with:
+        variant: sccache
+        create-symlink: ${{ runner.os != 'Windows' }}
+        key: ${{ runner.os }}-${{ runner.arch }}-${{ inputs.artifact-name }}-sccache
 
     - name: Install Qt
       uses: jurplel/install-qt-action@v4
