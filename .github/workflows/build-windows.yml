@@ -1,39 +1,55 @@
-- name: Set up Ninja
-      uses: Ninja-build/ninja-setup-action@v3
+name: Build PrismLauncher (Windows)
 
-    - name: Install Qt
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: '6.8.0'
-        host: 'windows'
-        target: 'desktop'
-        arch: 'win64_msvc2019_64'
-        tools: 'tools_cmake'
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
-    - name: Setup MSVC Environment
-      uses: ilammy/msvc-dev-cmd@v1
+jobs:
+  build-windows:
+    runs-on: windows-latest
 
-    - name: Checkout Extra CMake Modules (ECM)
-      uses: actions/checkout@v4
-      with:
-        repository: KDE/extra-cmake-modules
-        path: ecm-src
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Build and Install ECM Locally
-      run: |
-        cmake -S ecm-src -B ecm-build -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/ecm-install"
-        cmake --build ecm-build --target install
+      - name: Install Ninja
+        run: choco install ninja -y
 
-    - name: Configure CMake
-      run: |
-        cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${{ github.workspace }}/ecm-install"
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: '6.8.0'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
+          tools: 'tools_cmake'
 
-    - name: Build with CMake
-      run: |
-        cmake --build build --config Release
+      - name: Setup MSVC Environment
+        uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Upload Windows Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: PrismLauncher-Windows-Exe
-        path: build/bin/
+      - name: Checkout Extra CMake Modules (ECM)
+        uses: actions/checkout@v4
+        with:
+          repository: KDE/extra-cmake-modules
+          path: ecm-src
+
+      - name: Build and Install ECM Locally
+        run: |
+          cmake -S ecm-src -B ecm-build -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/ecm-install"
+          cmake --build ecm-build --target install
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${{ github.workspace }}/ecm-install"
+
+      - name: Build with CMake
+        run: |
+          cmake --build build --config Release
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: PrismLauncher-Windows-Exe
+          path: build/bin/
