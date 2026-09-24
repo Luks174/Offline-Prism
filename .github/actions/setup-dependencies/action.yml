@@ -119,12 +119,15 @@ runs:
       with:
         python-version: '3.14'
 
-    - name: Install Qt
+   - name: Install Qt
       if: ${{ inputs.msystem == '' }}
       uses: jurplel/install-qt-action@v4
       with:
         version: ${{ inputs.qt-version }}
+        arch: ${{ inputs.qt-architecture || (runner.os == 'Windows' && 'win64_msvc2022_64' || '') }} # <-- ADD THIS
         setup-python: false
         aqtsource: git+https://github.com/miurahr/aqtinstall.git@16db45a70b5905ad596941b223469bc86a56901e
+        modules: qtimageformats qtnetworkauth
+        cache: ${{ inputs.build-type == 'Debug' }}om/miurahr/aqtinstall.git@16db45a70b5905ad596941b223469bc86a56901e
         modules: qtimageformats qtnetworkauth
         cache: ${{ inputs.build-type == 'Debug' }}
