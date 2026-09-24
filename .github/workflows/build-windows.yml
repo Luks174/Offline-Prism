@@ -1,18 +1,5 @@
-name: Build Windows Exe
-
-on:
-  push:
-    branches: [ "main", "master" ]
-
-jobs:
-  build-windows:
-    runs-on: windows-latest
-
-    steps:
-    - name: Checkout repository recursively
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+- name: Set up Ninja
+      uses: Ninja-build/ninja-setup-action@v3
 
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
