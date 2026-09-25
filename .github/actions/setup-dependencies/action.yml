@@ -1,3 +1,6 @@
+- name: Cache
+  uses: actions/cache@v6.1.0
+
 name: Setup Dependencies
 description: Install and setup dependencies for building Prism Launcher
 
